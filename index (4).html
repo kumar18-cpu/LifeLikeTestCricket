@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Me vs My Laziness – Test Match</title>
+
+<style>
+:root {
+  --bg:#0f2027; --card:#1e2a33; --text:#fff;
+}
+.light {
+  --bg:#f4f6f8; --card:#fff; --text:#000;
+}
+body {
+  margin:0; font-family:Segoe UI;
+  background:var(--bg); color:var(--text);
+}
+.container { max-width:1000px; margin:auto; padding:20px; }
+h1,h2 { text-align:center; }
+
+.toggle {
+  position:fixed; top:10px; right:10px;
+  padding:8px 14px; border:none; border-radius:20px;
+}
+
+.card {
+  background:var(--card);
+  padding:15px; border-radius:10px; margin-bottom:15px;
+}
+
+.flex { display:flex; justify-content:space-between; align-items:center; }
+
+input,button {
+  padding:10px; border-radius:6px; border:none;
+}
+
+button { cursor:pointer; }
+
+.goal {
+  display:flex; justify-content:space-between;
+  background:rgba(0,0,0,.2);
+  padding:8px; border-radius:6px; margin:6px 0;
+}
+
+.done{background:#2ecc71}
+.fail{background:#e74c3c}
+.del{background:#555}
+
+canvas { background:#fff; border-radius:10px; padding:10px }
+</style>
+</head>
+
+<body>
+<button class="toggle" onclick="toggleTheme()">🌗</button>
+
+<div class="container">
+<h1>🏏 Me vs My Laziness</h1>
+
+<div class="card flex">
+  <div>📅 Day: <span id="day"></span></div>
+  <div>🏏 Batting: <span id="batting"></span></div>
+</div>
+
+<div class="card flex">
+  <div>Runs: <b id="runs">0</b></div>
+  <div>Wickets: <b id="wickets">0</b></div>
+  <div>SR: <b id="sr">0</b></div>
+</div>
+
+<div class="card">
+  <input id="goalText" placeholder="Goal">
+  <input id="goalTime" type="time">
+  <button onclick="addGoal()">Add</button>
+</div>
+
+<div id="sessions"></div>
+
+<button onclick="declare()" style="width:100%;background:#9b59b6">
+🚩 Declare Innings
+</button>
+
+<h2>📊 Match Analytics</h2>
+<canvas id="chart" height="120"></canvas>
+
+<h2>📜 Scorecard</h2>
+<div id="scorecard" class="card"></div>
+
+</div>
+
+<script>
+let match = JSON.parse(localStorage.getItem("match2")) || {
+  day:1, innings:[], goals:[], runs:0, wickets:0, theme:"dark"
+};
+
+document.body.className = match.theme==="light"?"light":"";
+day.innerText = match.day;
+batting.innerText = match.day % 2 ? "ME" : "MY LAZINESS";
+
+function session(t){
+  let h=+t.split(":")[0];
+  if(h<=11) return "Session 1";
+  if(h<=16) return "Session 2";
+  return "Session 3";
+}
+
+function addGoal(){
+  goalText.value && goalTime.value &&
+  match.goals.push({id:Date.now(),text:goalText.value,time:goalTime.value,session:session(goalTime.value),status:null});
+  save();
+}
+
+function mark(id,s){
+  let g=match.goals.find(x=>x.id==id);
+  if(g.status!==null) return;
+  g.status=s;
+  s?match.runs+=10:match.wickets++;
+  save();
+}
+
+function declare(){
+  match.innings.push({
+    day:match.day,
+    team:match.day%2?"ME":"LAZINESS",
+    runs:match.runs,
+    wickets:match.wickets
+  });
+  match.day++;
+  match.goals=[]; match.runs=0; match.wickets=0;
+  save();
+}
+
+function save(){
+  localStorage.setItem("match2",JSON.stringify(match));
+  render();
+}
+
+function render(){
+  runs.innerText=match.runs;
+  wickets.innerText=match.wickets;
+  sr.innerText=match.goals.length?(match.runs/match.goals.length).toFixed(1):0;
+
+  sessions.innerHTML="";
+  ["Session 1","Session 2","Session 3"].forEach(s=>{
+    let d=document.createElement("div"); d.className="card";
+    d.innerHTML=`<h3>${s}</h3>`;
+    match.goals.filter(g=>g.session==s).forEach(g=>{
+      d.innerHTML+=`
+      <div class="goal">
+      ${g.text} (${g.time})
+      <div>
+        <button class="done" onclick="mark(${g.id},1)">✔</button>
+        <button class="fail" onclick="mark(${g.id},0)">✖</button>
+      </div></div>`;
+    });
+    sessions.appendChild(d);
+  });
+
+  scorecard.innerHTML="";
+  match.innings.forEach(i=>{
+    scorecard.innerHTML+=`Day ${i.day} | ${i.team} | ${i.runs}/${i.wickets}<br>`;
+  });
+
+  drawChart();
+}
+
+function drawChart(){
+  let c=chart.getContext("2d");
+  c.clearRect(0,0,chart.width,chart.height);
+  let me=match.innings.filter(i=>i.team=="ME").reduce((a,b)=>a+b.runs,0);
+  let lazy=match.innings.filter(i=>i.team=="LAZINESS").reduce((a,b)=>a+b.runs,0);
+  c.fillStyle="#3498db"; c.fillRect(50,100-me/2,50,me/2);
+  c.fillStyle="#e74c3c"; c.fillRect(150,100-lazy/2,50,lazy/2);
+  c.fillStyle="#000"; c.fillText("ME",60,110); c.fillText("LAZY",150,110);
+}
+
+function toggleTheme(){
+  match.theme=match.theme==="dark"?"light":"dark";
+  document.body.className=match.theme==="light"?"light":"";
+  save();
+}
+
+render();
+</script>
+</body>
+</html>
